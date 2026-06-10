@@ -176,13 +176,33 @@ def detect_sources(text: str) -> list[str]:
     return found
 
 
-async def stream_tutor_reply(history: list[dict]) -> AsyncGenerator[str, None]:
-    """Stream an AI tutor reply (Anthropic claude-sonnet, both environments)."""
+APPROVED_SOURCES = ("RACGP", "RCH", "RANZCOG", "SA Health", "RCPsych")
+
+
+async def stream_tutor_reply(
+    history: list[dict],
+    source_filter: list[str] | None = None,
+    page_context: str | None = None,
+) -> AsyncGenerator[str, None]:
+    """Stream an AI tutor reply (Anthropic claude-sonnet, both environments).
+
+    source_filter: restrict the answer to a subset of the approved sources
+    (AI side panel chips). page_context: what the user is currently viewing.
+    """
     client = _anthropic_client()
+    system = TUTOR_SYSTEM_PROMPT
+    sources = [s for s in (source_filter or []) if s in APPROVED_SOURCES]
+    if sources:
+        system += (
+            f"\n\nIMPORTANT: For this question, answer ONLY using {' and '.join(sources)} "
+            "guidelines. If they do not cover the question, say so rather than citing other sources."
+        )
+    if page_context:
+        system += f"\n\nThe user is currently viewing: {page_context[:300]}. Offer to explain or expand on it when relevant."
     async with client.messages.stream(
         model=settings.TUTOR_MODEL,
         max_tokens=2048,
-        system=TUTOR_SYSTEM_PROMPT,
+        system=system,
         messages=history,
     ) as stream:
         async for text in stream.text_stream:

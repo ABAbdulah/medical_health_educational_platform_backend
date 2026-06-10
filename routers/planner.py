@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import StudyPlan, StudyTask, User, UserPreferences
-from schemas.misc import StudyPlanOut, StudyTaskOut
+from schemas.misc import CustomTaskIn, StudyPlanOut, StudyTaskOut
 from services.planner_service import generate_plan_tasks
 from utils.deps import get_current_user
 
@@ -66,6 +66,53 @@ async def current_plan(user: User = Depends(get_current_user), db: AsyncSession 
         "plan": StudyPlanOut.model_validate(plan).model_dump(),
         "tasks": [StudyTaskOut.model_validate(t).model_dump() for t in tasks],
     }
+
+
+@router.post("/tasks", response_model=StudyTaskOut, status_code=201)
+async def add_custom_task(
+    payload: CustomTaskIn, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    """Add a user-created task (dashboard '+ Add Task' / guidelines 'Add to Study Plan').
+
+    If no active plan exists yet, a minimal plan is created to hold custom tasks.
+    """
+    plan = (
+        await db.execute(
+            select(StudyPlan)
+            .where(StudyPlan.user_id == user.id, StudyPlan.status == "active")
+            .order_by(StudyPlan.generated_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if plan is None:
+        prefs = (
+            await db.execute(select(UserPreferences).where(UserPreferences.user_id == user.id))
+        ).scalar_one_or_none()
+        target = prefs.exam_date if prefs and prefs.exam_date and prefs.exam_date > date.today() else payload.due_date
+        plan = StudyPlan(user_id=user.id, target_exam_date=target)
+        db.add(plan)
+        await db.flush()
+
+    task = StudyTask(
+        plan_id=plan.id,
+        subject=payload.subject,
+        topic=payload.topic,
+        estimated_hours=payload.estimated_hours,
+        due_date=payload.due_date,
+        task_type=payload.task_type,
+    )
+    db.add(task)
+
+    # adding a task changes the completion denominator
+    plan_tasks = (
+        await db.execute(select(StudyTask).where(StudyTask.plan_id == plan.id))
+    ).scalars().all()
+    done = sum(1 for t in plan_tasks if t.completed)
+    plan.completion_pct = round(done / (len(plan_tasks) + 1) * 100, 1)
+
+    await db.commit()
+    await db.refresh(task)
+    return StudyTaskOut.model_validate(task)
 
 
 @router.patch("/tasks/{task_id}/toggle", response_model=StudyTaskOut)

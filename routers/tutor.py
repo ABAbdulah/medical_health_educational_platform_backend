@@ -136,7 +136,9 @@ async def chat(payload: ChatRequest, user: User = Depends(get_current_user), db:
         full_reply = []
         yield f"data: {json.dumps({'type': 'start', 'conversation_id': conversation_id})}\n\n"
         try:
-            async for token in ai_service.stream_tutor_reply(history):
+            async for token in ai_service.stream_tutor_reply(
+                history, source_filter=payload.source_filter, page_context=payload.page_context
+            ):
                 full_reply.append(token)
                 yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
         except Exception as exc:

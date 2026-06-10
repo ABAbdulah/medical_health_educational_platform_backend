@@ -3,11 +3,12 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import Subscription, User
+from models import Subscription, User, WaitlistEntry
 from utils.deps import get_current_user
 
 router = APIRouter(prefix="/api/subscription", tags=["subscription"])
@@ -57,3 +58,26 @@ async def create_checkout(
     await db.commit()
     return {"status": "activated", "plan": payload.plan, "checkout_url": None,
             "note": "Stripe placeholder — set STRIPE_SECRET_KEY to enable real payments"}
+
+
+class WaitlistRequest(BaseModel):
+    email: EmailStr
+    plan_interest: str | None = Field(default=None, pattern="^(monthly|annual)$")
+
+
+@router.post("/waitlist", status_code=201)
+async def join_waitlist(
+    payload: WaitlistRequest, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+):
+    """Capture premium-waitlist emails while payments are 'Coming Soon'."""
+    existing = (
+        await db.execute(select(WaitlistEntry).where(WaitlistEntry.email == payload.email.lower()))
+    ).scalar_one_or_none()
+    if existing:
+        if payload.plan_interest:
+            existing.plan_interest = payload.plan_interest
+            await db.commit()
+        return {"status": "already_joined"}
+    db.add(WaitlistEntry(email=payload.email.lower(), plan_interest=payload.plan_interest))
+    await db.commit()
+    return {"status": "joined"}

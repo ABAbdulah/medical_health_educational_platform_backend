@@ -15,6 +15,8 @@ class Flashcard(Base):
     back_text: Mapped[str] = mapped_column(Text)
     source_type: Mapped[str] = mapped_column(String(30), default="manual")  # manual | mcq | topic | note | ai
     subject: Mapped[str | None] = mapped_column(String(100))
+    difficulty: Mapped[str | None] = mapped_column(String(20))  # easy | medium | hard
+    personal_notes: Mapped[str | None] = mapped_column(Text)  # the user's own memory tips per card
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     progress: Mapped["FlashcardProgress | None"] = relationship(

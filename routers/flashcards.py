@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
 from models import Flashcard, FlashcardProgress, User
-from schemas.misc import FlashcardIn, FlashcardOut, FlashcardReviewIn
+from schemas.misc import FlashcardIn, FlashcardOut, FlashcardReviewIn, FlashcardUpdate
 from services.sm2 import schedule_review
 from utils.deps import get_current_user
 
@@ -49,10 +49,31 @@ async def due_flashcards(user: User = Depends(get_current_user), db: AsyncSessio
     return [
         {
             "id": card.id, "front_text": card.front_text, "back_text": card.back_text,
-            "subject": card.subject, "repetitions": prog.repetitions,
+            "subject": card.subject, "difficulty": card.difficulty,
+            "personal_notes": card.personal_notes, "repetitions": prog.repetitions,
         }
         for card, prog in rows
     ]
+
+
+@router.put("/{card_id}", response_model=FlashcardOut)
+async def update_flashcard(
+    card_id: int,
+    payload: FlashcardUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    card = (
+        await db.execute(select(Flashcard).where(Flashcard.id == card_id, Flashcard.user_id == user.id))
+    ).scalar_one_or_none()
+    if card is None:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(card, field, value)
+    await db.commit()
+    await db.refresh(card)
+    return FlashcardOut.model_validate(card)
 
 
 @router.post("/{card_id}/review")

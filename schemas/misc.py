@@ -63,6 +63,16 @@ class FlashcardIn(BaseModel):
     back_text: str = Field(min_length=1)
     source_type: str = "manual"
     subject: str | None = None
+    difficulty: str | None = Field(default=None, pattern="^(easy|medium|hard)$")
+    personal_notes: str | None = None
+
+
+class FlashcardUpdate(BaseModel):
+    front_text: str | None = Field(default=None, min_length=1)
+    back_text: str | None = Field(default=None, min_length=1)
+    subject: str | None = None
+    difficulty: str | None = Field(default=None, pattern="^(easy|medium|hard)$")
+    personal_notes: str | None = None
 
 
 class FlashcardOut(FlashcardIn):
@@ -79,6 +89,18 @@ class FlashcardReviewIn(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
     conversation_id: int | None = None
+    # restrict THIS message's answer to specific approved sources (AI side panel chips)
+    source_filter: list[str] | None = None
+    # what the user is currently viewing (AI side panel context injection)
+    page_context: str | None = Field(default=None, max_length=300)
+
+
+class CustomTaskIn(BaseModel):
+    subject: str = Field(min_length=1, max_length=100)
+    topic: str = Field(min_length=1, max_length=255)
+    estimated_hours: float = Field(default=1.0, ge=0.25, le=16)
+    due_date: date
+    task_type: str = Field(default="study", pattern="^(study|mcq_practice|revision|mock_exam)$")
 
 
 class VerifyNoteRequest(BaseModel):

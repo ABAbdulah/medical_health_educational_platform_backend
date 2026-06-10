@@ -1,7 +1,7 @@
 from models.ai_chat import AIConversation, AIMessage
 from models.flashcard import Flashcard, FlashcardProgress
 from models.guideline import GuidelineTopic
-from models.misc import BurnoutResource, MotivationQuote
+from models.misc import BurnoutResource, MotivationQuote, WaitlistEntry
 from models.note import Note, NoteFolder
 from models.question import Question, QuestionAttempt, QuestionBookmark, QuestionOption
 from models.recall import RecallAnalytics, RecallDocument, RecallTopic
@@ -31,4 +31,5 @@ __all__ = [
     "Subscription",
     "User",
     "UserPreferences",
+    "WaitlistEntry",
 ]
