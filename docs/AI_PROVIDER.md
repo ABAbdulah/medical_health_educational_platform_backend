@@ -15,17 +15,40 @@ There are two providers:
 
 ---
 
-## Current setup: Qwen via a hosted OpenAI-compatible API (production on Railway)
+## Current setup: Gemini via Google AI Studio (RECOMMENDED — free, fast, reliable)
 
-Set these in the **Railway → backend service → Variables** tab:
+Google's Gemini API exposes an OpenAI-compatible endpoint, and the free tier gives the
+Flash family ~15 requests/min and ~1,500 requests/day — far above OpenRouter's free tier
+(50/day) and served from Google's own infrastructure (no shared-endpoint congestion).
+
+Get a key at **aistudio.google.com/apikey** (Create API key — no card needed), then set
+these in the **Railway → backend service → Variables** tab (same values work locally):
+
+```
+LLM_PROVIDER    = openai
+LLM_BASE_URL    = https://generativelanguage.googleapis.com/v1beta/openai
+LLM_API_KEY     = <your AI Studio key>
+LLM_MODEL       = gemini-3.1-flash-lite   # MCQ/JSON tasks — measured ~4s for 2 MCQs
+LLM_TUTOR_MODEL = gemini-2.5-flash        # streaming tutor — measured ~3s replies
+```
+
+> Avoid `gemini-flash-latest` for the tutor: it currently maps to a thinking model that
+> delays the first streamed token by ~20s. `gemini-2.5-flash` is fast and non-thinking.
+> Free-tier caveat: Google may use free-tier prompts/responses to improve its models —
+> fine for development; move to the paid tier before handling sensitive user data.
+
+## Alternative: Qwen via a hosted OpenAI-compatible API (OpenRouter etc.)
 
 ```
 LLM_PROVIDER = openai
 LLM_BASE_URL = https://openrouter.ai/api/v1      # or your chosen provider's base URL
 LLM_API_KEY  = <your provider key>
-LLM_MODEL    = qwen/qwen-2.5-7b-instruct          # provider-specific model id
-# LLM_TUTOR_MODEL = qwen/qwen-2.5-72b-instruct    # optional: bigger model for the tutor only
+LLM_MODEL    = qwen/qwen3-next-80b-a3b-instruct:free
+# LLM_TUTOR_MODEL =                               # optional: bigger model for the tutor only
 ```
+
+> OpenRouter `:free` models are capped at 50 requests/day (1,000/day after a one-time
+> $10 credit purchase) and can return 429 at peak times.
 
 ### Provider quick-reference (all OpenAI-compatible)
 
